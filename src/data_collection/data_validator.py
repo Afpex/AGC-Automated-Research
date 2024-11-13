@@ -1,65 +1,48 @@
 import pandas as pd
 from datetime import datetime
 import logging
+from dateutil import parser
 
 logger = logging.getLogger(__name__)
 
 class DataValidator:
     """
     Validates transport data for consistency and correctness.
-    
-    This class provides methods to validate individual data records
-    and entire DataFrames of transport data.
-    
-    Attributes:
-        required_fields (list): List of required fields in the data
-        min_content_length (int): Minimum required length for content field
-        date_format (str): Expected format for date fields
     """
     
     def __init__(self, required_fields=None, min_content_length=20):
-        """
-        Initialize the DataValidator with configuration.
-        
-        Args:
-            required_fields (list, optional): List of required field names.
-                Defaults to ['title', 'content', 'date'].
-            min_content_length (int, optional): Minimum content length.
-                Defaults to 20.
-        """
+        """Initialize the DataValidator with configuration."""
         self.required_fields = required_fields or ['title', 'content', 'date']
         self.min_content_length = min_content_length
-        self.date_format = '%d-%m-%Y'  # Changed to day-month-year format
         
     def validate_data(self, data):
-        """
-        Validate a single data record.
-        
-        Args:
-            data (dict): Data record to validate
-            
-        Returns:
-            bool: True if data is valid, False otherwise
-        """
+        """Validate a single data record."""
         # Check required fields
         if not all(field in data for field in self.required_fields):
-            logger.warning(f"Missing required fields in data: {data}")
+            logger.warning(f"Missing required fields in data")
             return False
 
-        # Validate date format
+        # Validate date
         try:
-            parsed_date = datetime.strptime(data['date'], self.date_format)
-            # Additional check for valid date range if needed
+            date_str = data['date']
+            # Try to parse any date format
+            parsed_date = parser.parse(date_str)
+            
+            # Convert to standard format YYYY-MM-DD
+            data['date'] = parsed_date.strftime('%Y-%m-%d')
+            
+            # Check if date is within reasonable range
             if parsed_date.year < 2000 or parsed_date.year > 2100:
-                logger.warning(f"Date out of acceptable range: {data['date']}")
+                logger.warning(f"Date out of acceptable range: {date_str}")
                 return False
-        except ValueError:
-            logger.warning(f"Invalid date format in data: {data['date']}. Expected format: DD-MM-YYYY")
+                
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid date format: {date_str}")
             return False
             
         # Validate content length
-        if len(str(data['content'])) < self.min_content_length:
-            logger.warning(f"Content too short: {len(str(data['content']))} characters")
+        if not data['content'] or len(str(data['content'])) < self.min_content_length:
+            logger.warning(f"Content too short or empty")
             return False
             
         # Validate title is not empty
@@ -70,29 +53,29 @@ class DataValidator:
         return True
         
     def validate_dataframe(self, df):
-        """
-        Validate and clean a DataFrame of transport data.
-        
-        Args:
-            df (pandas.DataFrame): DataFrame to validate
-            
-        Returns:
-            pandas.DataFrame: Cleaned DataFrame with only valid records
-        """
+        """Validate and clean a DataFrame of transport data."""
         # Create a copy to avoid modifying the original
         cleaned_df = df.copy()
         
         # Remove duplicates
         initial_len = len(cleaned_df)
-        cleaned_df = cleaned_df.drop_duplicates()
+        cleaned_df = cleaned_df.drop_duplicates(subset=['title', 'content'], keep='first')
         if len(cleaned_df) < initial_len:
             logger.info(f"Removed {initial_len - len(cleaned_df)} duplicate records")
             
         # Apply validation to each row
-        valid_mask = cleaned_df.apply(lambda row: self.validate_data(row.to_dict()), axis=1)
+        valid_records = []
+        for _, row in cleaned_df.iterrows():
+            record = row.to_dict()
+            if self.validate_data(record):
+                valid_records.append(record)
+                
+        # Create new DataFrame from valid records
+        validated_df = pd.DataFrame(valid_records)
         
-        # Filter out invalid records
-        cleaned_df = cleaned_df[valid_mask]
-        logger.info(f"Kept {len(cleaned_df)} valid records out of {initial_len} total")
-        
-        return cleaned_df
+        if len(validated_df) > 0:
+            logger.info(f"Kept {len(validated_df)} valid records out of {initial_len} total")
+        else:
+            logger.warning("No valid records found after validation")
+            
+        return validated_df

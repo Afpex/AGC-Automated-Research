@@ -1,5 +1,5 @@
 import click
-from main import TransportDataCollector
+from .main import TransportDataCollector  # Changed from src.main to just main since we're in the src directory
 import pandas as pd
 
 @click.group()
@@ -27,5 +27,8 @@ def analyze(filename):
     except Exception as e:
         click.echo(f"Error: {str(e)}")
 
-if __name__ == '__main__':
+def main():
     cli()
+
+if __name__ == '__main__':
+    main()

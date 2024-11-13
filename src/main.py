@@ -1,17 +1,16 @@
 import logging
 from pathlib import Path
 from datetime import datetime
-from data_collection.scraper import TransportScraper
-from data_collection.api_client import TransportAPIClient
-from data_collection.data_validator import DataValidator
+from .data_collection.scraper import TransportScraper
+from .data_collection.api_client import TransportAPIClient
+from .data_collection.data_validator import DataValidator
 import pandas as pd
-from config.settings import RESEARCH_CONFIG, API_SETTINGS
+from config.settings import RESEARCH_CONFIG
+import time
 
 logger = logging.getLogger(__name__)
 
 class TransportDataCollector:
-    """Main class for collecting and processing transport data."""
-    
     def __init__(self):
         self.scraper = TransportScraper()
         self.api_client = TransportAPIClient()
@@ -21,69 +20,74 @@ class TransportDataCollector:
     def collect_data(self):
         """Collect data from all configured sources."""
         all_data = []
+        start_time = time.time()
         
-        # Collect API data
-        if self.config['data_sources'][0]['enabled']:  # transport_api
+        print("\nStarting data collection process...")
+        
+        # Collect website data if enabled
+        web_source = next((source for source in self.config['data_sources'] 
+                          if source['name'] == 'transport_websites'), None)
+        if web_source and web_source.get('enabled', True):
             try:
-                api_data = self._collect_api_data()
-                all_data.extend(api_data)
-                logger.info(f"Collected {len(api_data)} records from API")
+                print("\nCollecting data from websites...")
+                for category, sites in web_source['sites'].items():
+                    print(f"\nProcessing {category}...")
+                    for site in sites:
+                        try:
+                            site_data = self.scraper.scrape_site_with_microsites({
+                                'url': site['url'],
+                                'name': site['name'],
+                                'priority': site.get('priority', 2),
+                                'include_microsites': web_source.get('include_microsites', True)
+                            })
+                            if site_data:
+                                all_data.extend(site_data)
+                        except Exception as e:
+                            logger.error(f"Error scraping {site['name']}: {str(e)}")
+                            continue
+                
             except Exception as e:
-                logger.error(f"Error collecting API data: {str(e)}")
+                logger.error(f"Error in website scraping: {str(e)}")
         
-        # Collect scraped data
-        if self.config['data_sources'][1]['enabled']:  # transport_websites
-            try:
-                scraped_data = self._collect_scraped_data()
-                all_data.extend(scraped_data)
-                logger.info(f"Collected {len(scraped_data)} records from websites")
-            except Exception as e:
-                logger.error(f"Error collecting scraped data: {str(e)}")
-        
-        # Convert to DataFrame and validate
+        # Process and save data
         if all_data:
+            print("\nProcessing collected data...")
             df = pd.DataFrame(all_data)
             validated_df = self.validator.validate_dataframe(df)
             self._save_data(validated_df)
+            
+            # Print summary
+            elapsed_time = time.time() - start_time
+            print(f"\nCollection completed in {elapsed_time:.1f} seconds")
+            print(f"Total records collected: {len(validated_df)}")
+            print(f"Records by source:")
+            print(df['category'].value_counts().to_string())
+            
             return validated_df
-        return pd.DataFrame()
-    
-    def _collect_api_data(self):
-        """Collect data from the transport API."""
-        data = []
-        for endpoint in self.config['data_sources'][0]['endpoints']:
-            try:
-                response = self.api_client.fetch_data(endpoint)
-                data.extend(response.get('data', []))
-            except Exception as e:
-                logger.error(f"Error fetching from endpoint {endpoint}: {str(e)}")
-        return data
-    
-    def _collect_scraped_data(self):
-        """Collect data from configured websites."""
-        data = []
-        for url in self.config['data_sources'][1]['urls']:
-            try:
-                scraped = self.scraper.scrape_url(url)
-                if scraped:
-                    data.append(scraped)
-            except Exception as e:
-                logger.error(f"Error scraping {url}: {str(e)}")
-        return data
+        else:
+            print("\nNo data was collected")
+            return pd.DataFrame()
     
     def _save_data(self, df):
         """Save the collected data to a CSV file."""
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f'transport_data_{timestamp}.csv'
-        filepath = Path('data/processed') / filename
-        df.to_csv(filepath, index=False)
-        logger.info(f"Saved {len(df)} records to {filepath}")
+        if len(df) > 0:
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            filename = f'transport_data_{timestamp}.csv'
+            filepath = Path('data/processed') / filename
+            filepath.parent.mkdir(parents=True, exist_ok=True)
+            df.to_csv(filepath, index=False)
+            print(f"\nSaved {len(df)} records to {filepath}")
+        else:
+            print("\nNo data to save")
 
 def main():
     """Main entry point for the data collection process."""
     collector = TransportDataCollector()
     data = collector.collect_data()
-    print(f"Collected and processed {len(data)} records")
+    if len(data) > 0:
+        print(f"\nSuccessfully collected and processed {len(data)} records")
+    else:
+        print("\nNo data was collected")
 
 if __name__ == "__main__":
     main()

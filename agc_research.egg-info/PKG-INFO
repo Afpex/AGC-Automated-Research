@@ -1,0 +1,9 @@
+Metadata-Version: 2.1
+Name: agc_research
+Version: 0.1
+Requires-Python: >=3.8
+Requires-Dist: click
+Requires-Dist: pandas
+Requires-Dist: python-dotenv
+Requires-Dist: requests
+Requires-Dist: pyyaml

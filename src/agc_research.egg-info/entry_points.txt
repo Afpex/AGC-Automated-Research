@@ -1,0 +1,2 @@
+[console_scripts]
+agc-collect = src.cli:main

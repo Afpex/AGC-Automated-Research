@@ -1,7 +1,7 @@
-# config/settings.py
 import os
 from pathlib import Path
 import yaml
+import random
 
 # Base paths
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -13,8 +13,12 @@ for dir_path in [DATA_DIR / sub_dir for sub_dir in ['raw', 'processed', 'reports
     dir_path.mkdir(parents=True, exist_ok=True)
 
 # Load research config
-with open(BASE_DIR / 'config' / 'research_config.yaml', 'r') as file:
-    RESEARCH_CONFIG = yaml.safe_load(file)
+try:
+    with open(BASE_DIR / 'config' / 'research_config.yaml', 'r') as file:
+        RESEARCH_CONFIG = yaml.safe_load(file)
+except Exception as e:
+    print(f"Error loading research config: {e}")
+    RESEARCH_CONFIG = {}
 
 # API Settings
 API_SETTINGS = {
@@ -27,7 +31,7 @@ API_SETTINGS = {
 # Scraping Settings
 SCRAPING_SETTINGS = {
     'user_agent': 'TransportResearchBot/1.0',
-    'request_delay': 2,  # seconds between requests
+    'request_delay': lambda: random.uniform(2, 5),  # Made this a callable
     'max_retries': 3,
     'timeout': 30,
     'headers': {
@@ -81,7 +85,7 @@ LOGGING_CONFIG = {
             'level': 'INFO',
             'formatter': 'standard',
             'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'logs' / 'app.log',
+            'filename': str(BASE_DIR / 'logs' / 'app.log'),
             'mode': 'a',
         },
     },
@@ -93,3 +97,6 @@ LOGGING_CONFIG = {
         }
     }
 }
+
+# Make sure logs directory exists
+(BASE_DIR / 'logs').mkdir(exist_ok=True)

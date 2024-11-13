@@ -1,0 +1,129 @@
+data_sources:
+  - name: "transport_api"
+    type: "api"
+    enabled: false # Disable API collection for now
+    endpoints:
+      - "routes"
+      - "vehicles"
+      - "schedules"
+    settings:
+      base_url: "https://api.transport-data.com"
+      retry_attempts: 3
+      timeout: 30
+
+  - name: "transport_websites"
+    type: "scraper"
+    enabled: true
+    include_microsites: true
+    max_depth: 4
+    sites:
+      international_organizations:
+        - name: "UN-Habitat Transport"
+          url: "https://unhabitat.org/topic/mobility-and-transport"
+          priority: 1
+          microsites:
+            - "https://unhabitat.org/project/promoting-sustainable-transport-solutions-for-east-african-cities-sustran"
+        
+        - name: "TUMI"
+          url: "https://transformative-mobility.org/"
+          priority: 1
+        
+        - name: "ITDP"
+          url: "https://itdp.org/"
+          priority: 1
+        
+        - name: "SSATP"
+          url: "https://www.ssatp.org/home"
+          priority: 1
+
+      regional_initiatives:
+        - name: "ICI East Africa"
+          url: "https://www.international-climate-initiative.com/en/project/growing-smarter-sustainable-mobility-in-east-africa-18-i-356-africa-a-sustainable-mobility-in-east-africa/"
+          priority: 2
+        
+        - name: "InfraCo Africa"
+          url: "https://infracoafrica.com/project/mobility-for-africa/"
+          priority: 2
+        
+        - name: "African Union Transport"
+          url: "https://au.int/en/directorates/transport-and-mobility"
+          priority: 1
+
+      global_platforms:
+        - name: "ITF OECD"
+          url: "https://www.itf-oecd.org/"
+          priority: 1
+        
+        - name: "SuM4All"
+          url: "https://sum4all.org/"
+          priority: 1
+        
+        - name: "UITP Africa"
+          url: "https://www.uitp.org/regions/africa/"
+          priority: 2
+        
+        - name: "WRI Cities"
+          url: "https://www.wri.org/our-work/topics/sustainable-cities"
+          priority: 2
+
+      development_banks:
+        - name: "AfDB Transport"
+          url: "https://www.afdb.org/en/topics-and-sectors/sectors/transport"
+          priority: 1
+
+      other_resources:
+        - name: "UNECE Transport"
+          url: "https://unece.org/transport"
+          priority: 2
+        
+        - name: "Global Mass Transit"
+          url: "https://www.globalmasstransit.net/"
+          priority: 2
+
+validation_rules:
+    content_length: 20
+    date_range:
+      start: "2000-01-01"
+      end: "2100-12-31"
+    required_fields:
+      - title
+      - content
+      - date
+      - source_url
+      - category
+
+scraping_settings:
+    delay_between_requests: 2
+    timeout: 30
+    max_retries: 3
+    headers:
+      User-Agent: "TransportResearchBot/1.0 (Research Project)"
+      Accept: "text/html,application/xhtml+xml"
+
+microsite_rules:
+    enabled: true
+    max_depth: 2
+    excluded_patterns:
+      - "*/login/*"
+      - "*/search*"
+      - "*/page/*"
+    included_patterns:
+      - "*/projects/*"
+      - "*/research/*"
+      - "*/publications/*"
+      - "*/news/*"
+
+api_settings:
+    base_url: "https://api.transport-data.com"
+    timeout: 30
+    retry_attempts: 3
+    endpoints:
+      - name: "routes"
+        path: "/api/v1/routes"
+        method: "GET"
+      - name: "vehicles"
+        path: "/api/v1/vehicles"
+        method: "GET"
+      - name: "schedules"
+        path: "/api/v1/schedules"
+        method: "GET"
